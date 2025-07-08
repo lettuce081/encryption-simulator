@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>암호화 & 복호화 실습</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f4f4; padding: 20px; }
+    h1 { color: #333; }
+    .container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
+    label, p { margin: 10px 0; }
+    input[type="text"], textarea { width: 100%; padding: 10px; margin-top: 5px; }
+    button { padding: 10px 15px; margin-top: 10px; cursor: pointer; }
+    pre { background: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    select { padding: 8px; margin-top: 10px; width: 100%; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔐 암호화 & 복호화 실습</h1>
+    <label for="message">메시지 입력:</label>
+    <input type="text" id="message" placeholder="예: HelloWorld" />
+
+    <label for="method">방식 선택:</label>
+    <select id="method">
+      <option value="rsa">RSA</option>
+      <option value="caesar">시저</option>
+      <option value="xor">XOR</option>
+      <option value="reverse">문자 반전</option>
+      <option value="base64">Base64</option>
+      <option value="atbash">Atbash</option>
+    </select>
+
+    <button onclick="encrypt()">암호화</button>
+    <button onclick="decrypt()">복호화</button>
+
+    <h3>📘 공식 설명</h3>
+    <pre id="formula">선택된 방식의 암호화/복호화 공식이 여기에 표시됩니다.</pre>
+
+    <h3>📦 결과</h3>
+    <p><strong>암호문:</strong> <span id="encrypted"></span></p>
+    <p><strong>복호화 결과:</strong> <span id="decrypted"></span></p>
+  </div>
+
+  <script>
+    const formulaText = {
+      rsa: `RSA 공개키 암호화:\n암호화: C = M^e mod n\n복호화: M = C^d mod n` ,
+      caesar: `시저 암호:\n암호화: 문자 이동 (예: +3)\n복호화: 문자 이동 (-3)` ,
+      xor: `XOR 암호:\n암호화: 문자 ⊕ 키\n복호화: 동일하게 문자 ⊕ 키` ,
+      reverse: `문자 반전:\n암호화 = 복호화 = 문자열 뒤집기` ,
+      base64: `Base64:\n암호화: 문자열 → base64 인코딩\n복호화: base64 → 원래 문자열` ,
+      atbash: `Atbash 암호:\n암호화: 알파벳 대칭 변환 (A↔Z, B↔Y ...)\n복호화도 동일` 
+    };
+
+    const rsaKeys = { p: 11, q: 13, n: 143, e: 7, d: 103 };
+
+    function modPow(base, exponent, modulus) {
+      let result = 1;
+      base %= modulus;
+      while (exponent > 0) {
+        if (exponent % 2 === 1) result = (result * base) % modulus;
+        exponent = Math.floor(exponent / 2);
+        base = (base * base) % modulus;
+      }
+      return result;
+    }
+
+    function caesar(text, shift) {
+      return text.split('').map(c => {
+        const code = c.charCodeAt(0);
+        if (c >= 'A' && c <= 'Z') return String.fromCharCode((code - 65 + shift + 26) % 26 + 65);
+        if (c >= 'a' && c <= 'z') return String.fromCharCode((code - 97 + shift + 26) % 26 + 97);
+        return c;
+      }).join('');
+    }
+
+    function xor(text, key = 42) {
+      return text.split('').map(c => c.charCodeAt(0) ^ key);
+    }
+
+    function xorDecrypt(arr, key = 42) {
+      return arr.map(c => String.fromCharCode(c ^ key)).join('');
+    }
+
+    function base64(text, decode = false) {
+      return decode ? atob(text) : btoa(text);
+    }
+
+    function atbash(text) {
+      return text.split('').map(c => {
+        if (c >= 'A' && c <= 'Z') return String.fromCharCode(90 - (c.charCodeAt(0) - 65));
+        if (c >= 'a' && c <= 'z') return String.fromCharCode(122 - (c.charCodeAt(0) - 97));
+        return c;
+      }).join('');
+    }
+
+    let lastEncrypted = '';
+    let lastEncryptedRaw = [];
+
+    function encrypt() {
+      const method = document.getElementById("method").value;
+      const msg = document.getElementById("message").value;
+      document.getElementById("formula").innerText = formulaText[method];
+
+      let result = '', raw;
+      if (method === "rsa") {
+        const ascii = msg.split('').map(c => c.charCodeAt(0));
+        raw = ascii.map(m => modPow(m, rsaKeys.e, rsaKeys.n));
+        result = raw.join(' ');
+      } else if (method === "caesar") {
+        result = caesar(msg, 3);
+      } else if (method === "xor") {
+        raw = xor(msg);
+        result = raw.join(' ');
+      } else if (method === "reverse") {
+        result = msg.split('').reverse().join('');
+      } else if (method === "base64") {
+        result = base64(msg);
+      } else if (method === "atbash") {
+        result = atbash(msg);
+      }
+      lastEncrypted = result;
+      lastEncryptedRaw = raw;
+      document.getElementById("encrypted").innerText = result;
+      document.getElementById("decrypted").innerText = '';
+    }
+
+    function decrypt() {
+      const method = document.getElementById("method").value;
+      let result = '';
+      if (method === "rsa") {
+        const raw = lastEncrypted.split(' ').map(Number);
+        result = raw.map(c => String.fromCharCode(modPow(c, rsaKeys.d, rsaKeys.n))).join('');
+      } else if (method === "caesar") {
+        result = caesar(lastEncrypted, -3);
+      } else if (method === "xor") {
+        result = xorDecrypt(lastEncryptedRaw);
+      } else if (method === "reverse") {
+        result = lastEncrypted.split('').reverse().join('');
+      } else if (method === "base64") {
+        result = base64(lastEncrypted, true);
+      } else if (method === "atbash") {
+        result = atbash(lastEncrypted);
+      }
+      document.getElementById("decrypted").innerText = result;
+    }
+  </script>
+</body>
+</html>
